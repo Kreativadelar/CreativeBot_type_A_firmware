@@ -10,6 +10,7 @@
 #include <sensor_msgs/BatteryState.h>
 #include <std_msgs/ColorRGBA.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/Vector3.h>
 #include <std_msgs/Int16.h>
 #include "MeAuriga.h"
 
@@ -26,6 +27,7 @@ MeOnBoardTemp OnBoardTemp(PORT_13);
 MeEncoderOnBoard Encoder_1(SLOT1);
 MeEncoderOnBoard Encoder_2(SLOT2);
 MeRGBLed led;
+MeBuzzer buzzer;
 
 ros::NodeHandle  nh;
 
@@ -37,6 +39,7 @@ std_msgs::Int16 light2_msg;
 sensor_msgs::Temperature temp_msg;
 sensor_msgs::BatteryState battery_msg;
 geometry_msgs::Twist command_velocity;
+geometry_msgs::Vector3 command_buzzer;
 
 
 ros::Publisher pub_range( "/ultrasound", &range_msg);
@@ -101,6 +104,17 @@ void cmd_vel(const geometry_msgs::Twist& vel){
   }
 }
 
+void cmd_buzzer(const geometry_msgs::Vector3& val){
+  if(val.x != 0){
+    //buzzerOn();
+    buzzer.tone(val.x, val.y);
+  }else{
+    buzzer.noTone(BUZZER_PORT);
+    //buzzerOff();
+  }
+  //buzzer.tone(val.x, val.y);
+}
+
 
 void isr_process_encoder1(void)
 {
@@ -125,8 +139,8 @@ void isr_process_encoder2(void)
     Encoder_2.pulsePosPlus();
   }
 }
-
 /**********************************/
+
 
 /**********************************/
 /* Helper functions               */
@@ -136,8 +150,25 @@ float mapfloat(float x, float in_min, float in_max, float out_min, float out_max
  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+void startup_seq()
+{
+  buzzer.tone(988, 200);
+
+  for(int j=0; j<3; j++){
+    for(int i=0; i<16; i++){
+      led.setColor(0,0,0);
+      led.setColor(i,0,0,255); 
+      led.show();
+      delay(10);
+    }
+  }
+}
+
+/**********************************/
+
 ros::Subscriber<std_msgs::ColorRGBA> sub("rgb", &rgbCb );
 ros::Subscriber<geometry_msgs::Twist> sub2("cmd_vel", &cmd_vel);
+ros::Subscriber<geometry_msgs::Vector3> sub3("buzzer", &cmd_buzzer);
 
 int16_t auriga_power = 0;
 
@@ -149,12 +180,21 @@ char frameidBattery[] = "/battery_state";
 void setup()
 {
 
+  /* Sound sensor */
   mySound.setpin(A1);
+
+  
+  /* Buzzer */
+  buzzer.setpin(BUZZER_PORT);
+
+
+  /* LED Ring */
   led.setpin(RGBLED_PORT);
   led.setColor(0,0,0); 
   led.show();
 
 
+  /* Ecoder motor drives */
   attachInterrupt(Encoder_1.getIntNum(), isr_process_encoder1, RISING);
   attachInterrupt(Encoder_2.getIntNum(), isr_process_encoder2, RISING);
   //Set PWM 8KHz
@@ -173,9 +213,13 @@ void setup()
   Encoder_1.setSpeedPid(0.18,0,0);
   Encoder_2.setSpeedPid(0.18,0,0);
   Encoder_1.runSpeed(0);
-  Encoder_2.runSpeed(0);
-  
-  
+  Encoder_2.runSpeed(0); 
+
+
+ /* Show startup is on the way */
+  startup_seq();
+
+ 
   nh.initNode();
   nh.advertise(pub_range);
   nh.advertise(pub_sound);
@@ -186,6 +230,7 @@ void setup()
 
   nh.subscribe(sub);
   nh.subscribe(sub2);
+  nh.subscribe(sub3);
 
   temp_msg.header.frame_id = frameidTemp;
 
