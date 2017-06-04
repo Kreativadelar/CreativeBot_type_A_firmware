@@ -92,10 +92,43 @@ void cmd_vel(const geometry_msgs::Twist& vel){
       speed_2_temp = speed_2_temp + (-currentSpeed * -vel.angular.z);
     }
   }
+  
+  
+  // Distance between wheels are 145 mm
+  // Wheel plus thicknes of track are 4 3mm in diameter 43 / 2 = 2.15 mm
+  
+  
+  //float velocity_left_cmd = 1.0 * vel.linear.x + vel.angular.z * 0.145 / 2 ; 
+  float velocity_left_cmd = (vel.linear.x + vel.angular.z * 0.145 / 2.0)/0.0215;
+  
+  //float velocity_right_cmd = 1.0 * vel.linear.x - vel.angular.z * 0.145 / 2; 
+  float velocity_right_cmd = (vel.linear.x - vel.angular.z * 0.145 / 2.0)/0.0215; 
+
+  if(velocity_left_cmd > 1.0) {
+    velocity_left_cmd = 1.0;
+  }
+  else if(velocity_left_cmd < -1.0){
+    velocity_left_cmd = -1.0;
+  }
+  
+  if(velocity_right_cmd > 1.0) {
+    velocity_right_cmd = 1.0;
+  }
+  else if(velocity_right_cmd < -1.0){
+    velocity_right_cmd = -1.0;
+  }
+
+
+  speed_1_temp = mapfloat(velocity_left_cmd, -1.0, 1.0, -255.0, 255.0);
+  speed_2_temp = mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0);
+  
   if(motorOn)
   {
     Encoder_1.runSpeed(-speed_1_temp);
     Encoder_2.runSpeed(speed_2_temp);
+    
+//    Encoder_1.runSpeed();
+//    Encoder_2.runSpeed(mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0));
   }
   else
   {
