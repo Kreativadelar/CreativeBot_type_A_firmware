@@ -61,6 +61,9 @@ int r,g,b = 0;
 bool motorOn = true;
 float currentSpeed = 0;
 
+const float pi = 3.141593;
+const float two_pi = 6.283185;
+
 
 /**********************************/
 /* Callbacks                      */
@@ -99,33 +102,39 @@ void cmd_vel(const geometry_msgs::Twist& vel){
   
   
   //float velocity_left_cmd = 1.0 * vel.linear.x + vel.angular.z * 0.145 / 2 ; 
-  float velocity_left_cmd = (vel.linear.x + vel.angular.z * 0.145 / 2.0)/0.0215;
+  float rad_sec_left = (vel.linear.x + vel.angular.z * 0.145 / 2.0)/0.0215;
   
   //float velocity_right_cmd = 1.0 * vel.linear.x - vel.angular.z * 0.145 / 2; 
-  float velocity_right_cmd = (vel.linear.x - vel.angular.z * 0.145 / 2.0)/0.0215; 
+  float rad_sec_right = (vel.linear.x - vel.angular.z * 0.145 / 2.0)/0.0215; 
 
-  if(velocity_left_cmd > 1.0) {
-    velocity_left_cmd = 1.0;
-  }
-  else if(velocity_left_cmd < -1.0){
-    velocity_left_cmd = -1.0;
-  }
-  
-  if(velocity_right_cmd > 1.0) {
-    velocity_right_cmd = 1.0;
-  }
-  else if(velocity_right_cmd < -1.0){
-    velocity_right_cmd = -1.0;
-  }
+  float rpm_left = (60/two_pi) * rad_sec_left; 
 
+  float rpm_right = (60/two_pi) * rad_sec_right;
 
-  speed_1_temp = mapfloat(velocity_left_cmd, -1.0, 1.0, -255.0, 255.0);
-  speed_2_temp = mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0);
-  
+//  if(velocity_left_cmd > 1.0) {
+//    velocity_left_cmd = 1.0;
+//  }
+//  else if(velocity_left_cmd < -1.0){
+//    velocity_left_cmd = -1.0;
+//  }
+//  
+//  if(velocity_right_cmd > 1.0) {
+//    velocity_right_cmd = 1.0;
+//  }
+//  else if(velocity_right_cmd < -1.0){
+//    velocity_right_cmd = -1.0;
+//  }
+//
+//
+//  speed_1_temp = mapfloat(velocity_left_cmd, -1.0, 1.0, -255.0, 255.0);
+//  speed_2_temp = mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0);
+//  
   if(motorOn)
   {
-    Encoder_1.runSpeed(-speed_1_temp);
-    Encoder_2.runSpeed(speed_2_temp);
+    Encoder_1.setCurrentSpeed(rpm_left);
+    Encoder_2.setCurrentSpeed(rpm_right);
+//    Encoder_1.runSpeed(-speed_1_temp);
+//    Encoder_2.runSpeed(speed_2_temp);
     
 //    Encoder_1.runSpeed();
 //    Encoder_2.runSpeed(mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0));
