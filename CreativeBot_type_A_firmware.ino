@@ -75,41 +75,57 @@ void rgbCb( const std_msgs::ColorRGBA& rgb){
 
 void cmd_vel(const geometry_msgs::Twist& vel){
 
-  currentSpeed = mapfloat(vel.linear.x, -1.0, 1.0, -255.0, 255.0);
+//  currentSpeed = mapfloat(vel.linear.x, -1.0, 1.0, -255.0, 255.0);
+//
+//  float speed_1_temp = currentSpeed;
+//  float speed_2_temp = currentSpeed;
+//
+//  if(vel.linear.x > 0.0){
+//    if(vel.angular.z >= 0.0){
+//      speed_2_temp = speed_2_temp - (currentSpeed * vel.angular.z);
+//    }
+//    else if(vel.angular.z < 0.0){
+//      speed_1_temp = speed_1_temp - (currentSpeed * -vel.angular.z);
+//    }
+//  }else if(vel.linear.x < 0.0){
+//    if(vel.angular.z >= 0.0){
+//      speed_1_temp = speed_1_temp + (-currentSpeed * vel.angular.z);
+//    }
+//    else if(vel.angular.z < 0.0){
+//      speed_2_temp = speed_2_temp + (-currentSpeed * -vel.angular.z);
+//    }
+//  }
 
-  float speed_1_temp = currentSpeed;
-  float speed_2_temp = currentSpeed;
-
-  if(vel.linear.x > 0.0){
-    if(vel.angular.z >= 0.0){
-      speed_2_temp = speed_2_temp - (currentSpeed * vel.angular.z);
-    }
-    else if(vel.angular.z < 0.0){
-      speed_1_temp = speed_1_temp - (currentSpeed * -vel.angular.z);
-    }
-  }else if(vel.linear.x < 0.0){
-    if(vel.angular.z >= 0.0){
-      speed_1_temp = speed_1_temp + (-currentSpeed * vel.angular.z);
-    }
-    else if(vel.angular.z < 0.0){
-      speed_2_temp = speed_2_temp + (-currentSpeed * -vel.angular.z);
-    }
-  }
-  
   
   // Distance between wheels are 145 mm
   // Wheel plus thicknes of track are 4 3mm in diameter 43 / 2 = 2.15 mm
-  
+
+  float angularCalc = vel.angular.z * 5.0;
+  float linearCalc = vel.linear.x * 0.4;
   
   //float velocity_left_cmd = 1.0 * vel.linear.x + vel.angular.z * 0.145 / 2 ; 
-  float rad_sec_left = (vel.linear.x + vel.angular.z * 0.145 / 2.0)/0.0215;
+  float rad_sec_left = (linearCalc - angularCalc * 0.145 / 2.0)/0.0215;
   
   //float velocity_right_cmd = 1.0 * vel.linear.x - vel.angular.z * 0.145 / 2; 
-  float rad_sec_right = (vel.linear.x - vel.angular.z * 0.145 / 2.0)/0.0215; 
+  float rad_sec_right = (linearCalc + angularCalc * 0.145 / 2.0)/0.0215; 
 
   float rpm_left = (60/two_pi) * rad_sec_left; 
 
   float rpm_right = (60/two_pi) * rad_sec_right;
+
+  if(rpm_left > 180.0) {
+    rpm_left = 180.0;
+  }
+  else if(rpm_left < -180.0){
+    rpm_left = -180.0;
+  }
+  
+  if(rpm_right > 180.0) {
+    rpm_right = 180.0;
+  }
+  else if(rpm_right < -180.0){
+    rpm_right = -180.0;
+  }
 
 //  if(velocity_left_cmd > 1.0) {
 //    velocity_left_cmd = 1.0;
@@ -131,8 +147,8 @@ void cmd_vel(const geometry_msgs::Twist& vel){
 //  
   if(motorOn)
   {
-    Encoder_1.setCurrentSpeed(rpm_left);
-    Encoder_2.setCurrentSpeed(rpm_right);
+    Encoder_1.runSpeed(-rpm_right);
+    Encoder_2.runSpeed(rpm_left);
 //    Encoder_1.runSpeed(-speed_1_temp);
 //    Encoder_2.runSpeed(speed_2_temp);
     
