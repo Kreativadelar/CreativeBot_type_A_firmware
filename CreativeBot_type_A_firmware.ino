@@ -9,7 +9,7 @@
 #include <sensor_msgs/Temperature.h>
 #include <sensor_msgs/BatteryState.h>
 #include <std_msgs/ColorRGBA.h>
-#include <geometry_msgs/Twist.h>
+#include <std_msgs/Float32.h>
 #include <geometry_msgs/Vector3.h>
 #include <std_msgs/Int16.h>
 #include "MeAuriga.h"
@@ -36,9 +36,10 @@ sensor_msgs::Range range_msg;
 std_msgs::Int16 sound_msg;
 std_msgs::Int16 light1_msg;
 std_msgs::Int16 light2_msg; 
+std_msgs::Float32 left_vel_msg; 
+std_msgs::Float32 right_vel_msg; 
 sensor_msgs::Temperature temp_msg;
 sensor_msgs::BatteryState battery_msg;
-geometry_msgs::Twist command_velocity;
 geometry_msgs::Vector3 command_buzzer;
 
 
@@ -46,6 +47,10 @@ ros::Publisher pub_range( "/ultrasound", &range_msg);
 ros::Publisher pub_sound( "/sound", &sound_msg);
 ros::Publisher pub_light1( "/light1", &light1_msg);
 ros::Publisher pub_light2( "/light2", &light2_msg);
+
+ros::Publisher pub_left_vel( "/left_rpm", &left_vel_msg);
+ros::Publisher pub_right_vel( "/right_rpm", &right_vel_msg);
+
 ros::Publisher pub_temp( "/temp", &temp_msg);
 ros::Publisher pub_battery( "/battery_state", &battery_msg);
 
@@ -57,6 +62,7 @@ long light2_time;
 long temp_time;
 long battery_time;
 long led_time;
+long wheels_time;
 int r,g,b = 0;
 bool motorOn = true;
 float currentSpeed = 0;
@@ -73,92 +79,25 @@ void rgbCb( const std_msgs::ColorRGBA& rgb){
   led.show();
 }
 
-void cmd_vel(const geometry_msgs::Twist& vel){
-
-//  currentSpeed = mapfloat(vel.linear.x, -1.0, 1.0, -255.0, 255.0);
-//
-//  float speed_1_temp = currentSpeed;
-//  float speed_2_temp = currentSpeed;
-//
-//  if(vel.linear.x > 0.0){
-//    if(vel.angular.z >= 0.0){
-//      speed_2_temp = speed_2_temp - (currentSpeed * vel.angular.z);
-//    }
-//    else if(vel.angular.z < 0.0){
-//      speed_1_temp = speed_1_temp - (currentSpeed * -vel.angular.z);
-//    }
-//  }else if(vel.linear.x < 0.0){
-//    if(vel.angular.z >= 0.0){
-//      speed_1_temp = speed_1_temp + (-currentSpeed * vel.angular.z);
-//    }
-//    else if(vel.angular.z < 0.0){
-//      speed_2_temp = speed_2_temp + (-currentSpeed * -vel.angular.z);
-//    }
-//  }
-
-  
-  // Distance between wheels are 145 mm
-  // Wheel plus thicknes of track are 4 3mm in diameter 43 / 2 = 2.15 mm
-
-  float angularCalc = vel.angular.z * 5.0;
-  float linearCalc = vel.linear.x * 0.4;
-  
-  //float velocity_left_cmd = 1.0 * vel.linear.x + vel.angular.z * 0.145 / 2 ; 
-  float rad_sec_left = (linearCalc - angularCalc * 0.145 / 2.0)/0.0215;
-  
-  //float velocity_right_cmd = 1.0 * vel.linear.x - vel.angular.z * 0.145 / 2; 
-  float rad_sec_right = (linearCalc + angularCalc * 0.145 / 2.0)/0.0215; 
-
-  float rpm_left = (60/two_pi) * rad_sec_left; 
-
-  float rpm_right = (60/two_pi) * rad_sec_right;
-
-  if(rpm_left > 180.0) {
-    rpm_left = 180.0;
-  }
-  else if(rpm_left < -180.0){
-    rpm_left = -180.0;
-  }
-  
-  if(rpm_right > 180.0) {
-    rpm_right = 180.0;
-  }
-  else if(rpm_right < -180.0){
-    rpm_right = -180.0;
-  }
-
-//  if(velocity_left_cmd > 1.0) {
-//    velocity_left_cmd = 1.0;
-//  }
-//  else if(velocity_left_cmd < -1.0){
-//    velocity_left_cmd = -1.0;
-//  }
-//  
-//  if(velocity_right_cmd > 1.0) {
-//    velocity_right_cmd = 1.0;
-//  }
-//  else if(velocity_right_cmd < -1.0){
-//    velocity_right_cmd = -1.0;
-//  }
-//
-//
-//  speed_1_temp = mapfloat(velocity_left_cmd, -1.0, 1.0, -255.0, 255.0);
-//  speed_2_temp = mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0);
-//  
+void lwheel_vtarget(const std_msgs::Float32& vel){
   if(motorOn)
   {
-    Encoder_1.runSpeed(-rpm_right);
-    Encoder_2.runSpeed(rpm_left);
-//    Encoder_1.runSpeed(-speed_1_temp);
-//    Encoder_2.runSpeed(speed_2_temp);
-    
-//    Encoder_1.runSpeed();
-//    Encoder_2.runSpeed(mapfloat(velocity_right_cmd, -1.0, 1.0, -255.0, 255.0));
+    Encoder_2.runSpeed(vel.data);
+  }
+  else
+  {
+    Encoder_2.runSpeed(0);
+  }
+}
+
+void rwheel_vtarget(const std_msgs::Float32& vel){
+  if(motorOn)
+  {
+    Encoder_1.runSpeed(-vel.data);
   }
   else
   {
     Encoder_1.runSpeed(0);
-    Encoder_2.runSpeed(0);
   }
 }
 
@@ -225,8 +164,9 @@ void startup_seq()
 /**********************************/
 
 ros::Subscriber<std_msgs::ColorRGBA> sub("rgb", &rgbCb );
-ros::Subscriber<geometry_msgs::Twist> sub2("cmd_vel", &cmd_vel);
 ros::Subscriber<geometry_msgs::Vector3> sub3("buzzer", &cmd_buzzer);
+ros::Subscriber<std_msgs::Float32> sub4("lwheel_vtarget", &lwheel_vtarget);
+ros::Subscriber<std_msgs::Float32> sub5("rwheel_vtarget", &rwheel_vtarget);
 
 int16_t auriga_power = 0;
 
@@ -283,12 +223,15 @@ void setup()
   nh.advertise(pub_sound);
   nh.advertise(pub_light1);
   nh.advertise(pub_light2);
+  nh.advertise(pub_left_vel);
+  nh.advertise(pub_right_vel);
   nh.advertise(pub_temp);
   nh.advertise(pub_battery);
 
   nh.subscribe(sub);
-  nh.subscribe(sub2);
   nh.subscribe(sub3);
+  nh.subscribe(sub4);
+  nh.subscribe(sub5);
 
   temp_msg.header.frame_id = frameidTemp;
 
@@ -356,6 +299,14 @@ void loop()
     light2_time = millis()+10;
   }
 
+  // publish wheel vel in RPM for each wheel
+  if(millis() >= wheels_time){
+    left_vel_msg.data = Encoder_1.getCurrentSpeed();
+    right_vel_msg.data = Encoder_2.getCurrentSpeed();
+    pub_left_vel.publish(&left_vel_msg);
+    pub_right_vel.publish(&right_vel_msg);
+    wheels_time = millis()+10;
+  }
 //  if(millis() >= led_time){
 //    led.setColor(r,g,b); 
 //    led.show();
